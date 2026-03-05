@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Músicas Novas WebnetMz</title>
+
+  <!-- Firebase (compat) - SOMENTE DATABASE (leitura) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+  <style>
+    :root{
+      --border: rgba(255,255,255,.10);
+      --border2: rgba(255,255,255,.18);
+      --text:#f2f2ff;
+      --muted:#a9a9c5;
+      --shadow: 0 14px 50px rgba(0,0,0,.35);
+      --shadow2: 0 20px 90px rgba(0,0,0,.65);
+      --radius: 18px;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1200px 600px at 20% 0%, rgba(255,255,255,.08), transparent 60%),
+        radial-gradient(900px 500px at 80% 10%, rgba(255,255,255,.06), transparent 60%),
+        linear-gradient(180deg, #07070a 0%, #050508 100%);
+      padding-bottom: 150px;
+    }
+
+    header{
+      position: sticky; top:0; z-index: 20;
+      background: rgba(7,7,10,.62);
+      backdrop-filter: blur(14px);
+      border-bottom:1px solid var(--border);
+      padding: 18px 16px;
+      display:flex; gap:12px; flex-wrap:wrap;
+      align-items:center; justify-content:space-between;
+    }
+    .brand{ display:flex; flex-direction:column; gap:4px; }
+    h1{ margin:0; font-size:18px; letter-spacing:.2px; }
+    .subtitle{ margin:0; color:var(--muted); font-size:12px; }
+
+    .search{
+      width:min(560px, 100%);
+      display:flex; gap:10px; align-items:center;
+      background: rgba(255,255,255,.06);
+      border:1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 12px;
+    }
+    .search input{
+      flex:1; background:transparent; border:0; outline:none;
+      color:var(--text); font-size:14px;
+    }
+    .pill{
+      font-size:12px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      color: var(--muted);
+      white-space:nowrap;
+    }
+
+    main{ padding: 16px; }
+
+    .toolbar{
+      margin: 10px 0 12px;
+      color:var(--muted);
+      font-size:13px;
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+    }
+
+    .btnTop, select{
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 8px 10px;
+      font-size:12px;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex; align-items:center; gap:8px;
+      transition: background .14s ease, transform .14s ease;
+    }
+    .btnTop:hover, select:hover{ background: rgba(255,255,255,.12); transform: translateY(-1px); }
+    .btnTop.active{ background: rgba(255,255,255,.14); border-color: var(--border2); }
+    select{ outline:none; }
+
+    .genreRow{ display:flex; gap:8px; flex-wrap:wrap; margin: 8px 0 14px; }
+
+    /* Grid cards */
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 12px;
+    }
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.04));
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      overflow:hidden;
+      box-shadow: var(--shadow);
+      cursor:pointer;
+      transition: transform .16s ease, border-color .16s ease, background .16s ease;
+      animation: pop .35s ease both;
+    }
+    @keyframes pop { from{ transform: translateY(6px); opacity:0; } to{ transform: translateY(0); opacity:1; } }
+    .card:hover{
+      transform: translateY(-3px);
+      border-color: var(--border2);
+      background: linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.05));
+    }
+    .thumb{ width:100%; height:160px; object-fit:cover; background:#222; display:block; }
+    .content{ padding: 12px; display:flex; flex-direction:column; gap:7px; }
+    .topline{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+    .songTitle{ margin:0; font-size:14px; line-height:1.2; }
+
+    .artist{
+      font-size:12px; color:var(--muted);
+      display:flex; justify-content:space-between; gap:10px; align-items:center;
+    }
+    .favBtn{
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.07);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 6px 10px;
+      font-size:14px;
+      cursor:pointer;
+      transition: background .14s ease, transform .14s ease;
+    }
+    .favBtn:hover{ background: rgba(255,255,255,.14); transform: translateY(-1px); }
+    .favBtn.on{ background: rgba(255,255,255,.16); border-color: var(--border2); }
+
+    .tags{ display:flex; flex-wrap:wrap; gap:6px; margin-top:2px; }
+    .tag{
+      font-size:11px; padding:4px 8px; border-radius:999px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.05);
+      color: var(--muted);
+    }
+    .desc{
+      font-size:12px; color: #dedeee;
+      opacity:.95; margin-top:3px; line-height:1.35;
+      display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical;
+      overflow:hidden;
+    }
+
+    .btnIcon{
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.08);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 8px 10px;
+      font-size:12px;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex; align-items:center; gap:8px;
+      transition: background .14s ease, transform .14s ease;
+    }
+    .btnIcon:hover{ background: rgba(255,255,255,.14); transform: translateY(-1px); }
+
+    .rowBtns{ display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+
+    .empty{
+      border:1px dashed var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      color: var(--muted);
+      background: rgba(255,255,255,.03);
+      display:none;
+      margin-top: 12px;
+    }
+
+    /* Player fixo */
+    .playerBar{
+      position: fixed;
+      left: 12px; right: 12px; bottom: 12px;
+      z-index: 30;
+      border:1px solid var(--border);
+      background: rgba(10,10,14,.86);
+      backdrop-filter: blur(16px);
+      border-radius: 22px;
+      box-shadow: 0 18px 70px rgba(0,0,0,.55);
+      padding: 10px 12px;
+      display:flex; gap:12px; align-items:center;
+      transform: translateY(140%);
+      opacity: 0;
+      transition: transform .28s ease, opacity .28s ease;
+    }
+    .playerBar.show{ transform: translateY(0); opacity: 1; }
+    .pThumb{ width:56px; height:56px; border-radius: 14px; object-fit:cover; background:#222; flex:0 0 auto; }
+    .pInfo{ min-width:0; flex: 1 1 auto; }
+    .pTitle{ font-size:13px; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pArtist{ font-size:12px; color:var(--muted); margin:2px 0 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    audio{ width: min(520px, 44vw); }
+
+    .pActions{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+    .xbtn{
+      width:44px; height:44px; border-radius: 14px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.10);
+      color: var(--text);
+      cursor:pointer;
+      display:grid; place-items:center;
+      transition: background .14s ease, transform .14s ease;
+      font-size:18px;
+    }
+    .xbtn:hover{ background: rgba(255,255,255,.16); transform: translateY(-1px); }
+
+    @media (max-width: 780px){
+      audio{ width: 100%; }
+      .playerBar{ flex-wrap:wrap; }
+    }
+
+    /* Modal detalhes */
+    .modalOverlay{
+      position: fixed; inset:0; z-index: 40;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(8px);
+      display:none;
+      padding: 18px;
+    }
+    .modalOverlay.show{ display:flex; align-items:center; justify-content:center; }
+    .modal{
+      width: min(980px, 100%);
+      border-radius: 22px;
+      border:1px solid var(--border);
+      background: rgba(12,12,18,.88);
+      box-shadow: var(--shadow2);
+      overflow:hidden;
+      transform: translateY(12px);
+      opacity: 0;
+      transition: transform .22s ease, opacity .22s ease;
+    }
+    .modalOverlay.show .modal{ transform: translateY(0); opacity: 1; }
+    .modalTop{ display:grid; grid-template-columns: 320px 1fr; }
+    .modalImg{ width:100%; height: 320px; object-fit:cover; background:#222; }
+    .modalBody{ padding: 16px; display:flex; flex-direction:column; gap: 10px; min-width:0; }
+    .modalTitle{ margin:0; font-size:18px; }
+    .modalMeta{ color:var(--muted); font-size:13px; }
+    .modalDesc{ margin:0; color:#e6e6f5; line-height:1.45; font-size:13px; }
+    .modalButtons{ display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; }
+
+    .btn{
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.08);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-size:13px;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex; align-items:center; gap:8px;
+      transition: background .14s ease, transform .14s ease;
+    }
+    .btn:hover{ background: rgba(255,255,255,.14); transform: translateY(-1px); }
+    .modalCloseRow{ display:flex; justify-content:flex-end; padding: 10px 12px; border-top: 1px solid var(--border); }
+
+    @media (max-width: 860px){
+      .modalTop{ grid-template-columns: 1fr; }
+      .modalImg{ height: 240px; }
+    }
+
+    /* Drawer da fila */
+    .drawerOverlay{
+      position: fixed; inset:0; z-index: 45;
+      background: rgba(0,0,0,.45);
+      backdrop-filter: blur(8px);
+      display:none;
+    }
+    .drawerOverlay.show{ display:block; }
+    .drawer{
+      position: fixed; right: 12px; bottom: 86px;
+      width: min(420px, calc(100vw - 24px));
+      max-height: 65vh;
+      z-index: 46;
+      border:1px solid var(--border);
+      background: rgba(12,12,18,.92);
+      border-radius: 18px;
+      box-shadow: var(--shadow2);
+      overflow:hidden;
+      transform: translateY(12px);
+      opacity:0;
+      transition: transform .22s ease, opacity .22s ease;
+      display:none;
+    }
+    .drawer.show{
+      display:block;
+      transform: translateY(0);
+      opacity:1;
+    }
+    .drawerHead{
+      padding: 12px 12px;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      border-bottom:1px solid var(--border);
+      background: rgba(255,255,255,.04);
+    }
+    .drawerTitle{ margin:0; font-size:13px; }
+    .drawerBody{ padding: 10px 12px; display:flex; flex-direction:column; gap:10px; overflow:auto; max-height: 55vh; }
+    .qItem{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding: 10px 10px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.04);
+      border-radius: 14px;
+    }
+    .qLeft{ min-width:0; display:flex; flex-direction:column; gap:3px; }
+    .qName{ font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .qMeta{ font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .miniBtn{
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 6px 10px;
+      font-size:12px;
+      cursor:pointer;
+      transition: background .14s ease, transform .14s ease;
+    }
+    .miniBtn:hover{ background: rgba(255,255,255,.12); transform: translateY(-1px); }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="brand">
+      <h1>Músicas Novas WebnetMz</h1>
+      <p class="subtitle">site criado por WebnetMoz</p>
+    </div>
+
+    <div class="search">
+      <span class="subtitle">🔎</span>
+      <input id="q" placeholder="Pesquisar título, artista, gênero..." />
+      <span id="count" class="pill">0</span>
+    </div>
+  </header>
+
+  <main>
+    <div class="toolbar">
+      <span id="statusText">Carregando...</span>
+
+      <button id="tabAll" class="btnTop active">🎵 Todas</button>
+      <button id="tabFav" class="btnTop">⭐ Favoritas</button>
+
+      <select id="sortSelect" title="Ordenar">
+        <option value="recent">🆕 Mais recentes</option>
+        <option value="az">🔤 A–Z</option>
+      </select>
+
+      <button id="clearFav" class="btnTop">🧹 Limpar fav</button>
+    </div>
+
+    <div id="genres" class="genreRow"></div>
+
+    <div id="lista" class="grid"></div>
+    <div id="empty" class="empty">Nenhum resultado.</div>
+  </main>
+
+  <!-- Player fixo -->
+  <div id="playerBar" class="playerBar">
+    <img id="pThumb" class="pThumb" alt="">
+    <div class="pInfo">
+      <p id="pTitle" class="pTitle">Escolha uma música</p>
+      <p id="pArtist" class="pArtist">—</p>
+    </div>
+
+    <audio id="player" controls preload="none"></audio>
+
+    <div class="pActions">
+      <button id="pQueueBtn" class="xbtn" title="Fila / Playlist">📜</button>
+      <a id="pShare" class="btnIcon" href="#" title="Compartilhar">🔗</a>
+      <a id="pDownload" class="btnIcon" href="#" download style="display:none;" title="Baixar">📥</a>
+      <button id="pPrev" class="xbtn" title="Anterior">⏮️</button>
+      <button id="pNext" class="xbtn" title="Próxima">⏭️</button>
+      <button id="pClose" class="xbtn" title="Fechar">✕</button>
+    </div>
+  </div>
+
+  <!-- Drawer Fila -->
+  <div id="drawerOverlay" class="drawerOverlay"></div>
+  <div id="drawer" class="drawer">
+    <div class="drawerHead">
+      <p class="drawerTitle">📜 Fila / Up Next</p>
+      <div style="display:flex; gap:8px;">
+        <button id="clearQueue" class="btnTop">🧹 Limpar</button>
+        <button id="closeQueue" class="btnTop">✕</button>
+      </div>
+    </div>
+    <div id="queueList" class="drawerBody"></div>
+  </div>
+
+  <!-- Modal detalhes -->
+  <div id="modalOverlay" class="modalOverlay" role="dialog" aria-modal="true">
+    <div class="modal">
+      <div class="modalTop">
+        <img id="mImg" class="modalImg" alt="">
+        <div class="modalBody">
+          <h2 id="mTitle" class="modalTitle">—</h2>
+          <div id="mMeta" class="modalMeta">—</div>
+          <p id="mDesc" class="modalDesc"></p>
+
+          <div class="modalButtons">
+            <button id="mPlay" class="btn">▶️ Tocar</button>
+            <button id="mAddQueue" class="btn">➕ Fila</button>
+            <button id="mShare" class="btn">🔗 Compartilhar</button>
+            <a id="mOpen" class="btn" href="#" target="_blank" rel="noopener">🔗 Abrir</a>
+            <a id="mDownload" class="btn" href="#" download>📥 Baixar</a>
+            <button id="mFav" class="btn">⭐ Favoritar</button>
+          </div>
+        </div>
+      </div>
+      <div class="modalCloseRow">
+        <button id="mClose" class="btn">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ======== CONFIG FIREBASE (seu projeto) ========
+    const firebaseConfig = {
+      apiKey: "AIzaSyBXgOy17BgztpYhazDETW-_kCiovzsjsbY",
+      authDomain: "webnetflix-3ba61.firebaseapp.com",
+      databaseURL: "https://webnetflix-3ba61-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "webnetflix-3ba61",
+      storageBucket: "webnetflix-3ba61.firebasestorage.app",
+      messagingSenderId: "951824574497",
+      appId: "1:951824574497:web:1cd9bbc8aace74a4e5db60",
+      measurementId: "G-HZLF433RSF"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // ======== FAVORITOS + FILA (LOCAL) ========
+    const favKey = "webnetmz_favs_only_v1";
+    const queueKey = "webnetmz_queue_only_v1";
+
+    let favs = new Set(JSON.parse(localStorage.getItem(favKey) || "[]"));
+    let queue = JSON.parse(localStorage.getItem(queueKey) || "[]"); // ids
+
+    function saveFavs(){ localStorage.setItem(favKey, JSON.stringify([...favs])); }
+    function saveQueue(){ localStorage.setItem(queueKey, JSON.stringify(queue)); }
+
+    // ======== HELPERS ========
+    function escapeHtml(str){
+      return String(str ?? "").replace(/[&<>"']/g, s => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+      }[s]));
+    }
+    function normalize(str){
+      return String(str ?? "")
+        .toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    }
+    function pick(item, ...keys){
+      for(const k of keys){
+        if(item && item[k] != null && String(item[k]).trim() !== "") return item[k];
+      }
+      return "";
+    }
+    function fixDropbox(url){
+      if(!url) return "";
+      return String(url).replace("dl=0","dl=1");
+    }
+
+    function idOf(it){ return String(it?.id ?? ""); }
+    function titleOf(it){ return pick(it, "Título","Titulo","titulo","title") || "Sem título"; }
+    function artistOf(it){ return pick(it, "Artista","artista","artist") || "Artista desconhecido"; }
+    function genreOf(it){ return pick(it, "Gênero","Genero","genero","genre") || "Sem gênero"; }
+    function descOf(it){ return pick(it, "Descrição","Descricao","descricao","desc","description") || ""; }
+    function imgOf(it){ return pick(it, "Imagem","imagem","img","cover","image") || ""; }
+    function playUrlOf(it){ return fixDropbox(pick(it, "LinkPlay","linkPlay","play","url","audio","audioUrl") || ""); }
+    function dlUrlOf(it){ return fixDropbox(pick(it, "LinkDownload","linkDownload","download","downloadUrl") || ""); }
+    function isFav(id){ return favs.has(String(id)); }
+
+    // ======== UI ========
+    const qInput = document.getElementById("q");
+    const countPill = document.getElementById("count");
+    const statusText = document.getElementById("statusText");
+    const tabAll = document.getElementById("tabAll");
+    const tabFav = document.getElementById("tabFav");
+    const clearFavBtn = document.getElementById("clearFav");
+    const sortSelect = document.getElementById("sortSelect");
+    const genresBox = document.getElementById("genres");
+    const lista = document.getElementById("lista");
+    const emptyBox = document.getElementById("empty");
+
+    const playerBar = document.getElementById("playerBar");
+    const player = document.getElementById("player");
+    const pThumb = document.getElementById("pThumb");
+    const pTitle = document.getElementById("pTitle");
+    const pArtist = document.getElementById("pArtist");
+    const pShare = document.getElementById("pShare");
+    const pDownload = document.getElementById("pDownload");
+    const pPrev = document.getElementById("pPrev");
+    const pNext = document.getElementById("pNext");
+    const pClose = document.getElementById("pClose");
+    const pQueueBtn = document.getElementById("pQueueBtn");
+
+    const modalOverlay = document.getElementById("modalOverlay");
+    const mImg = document.getElementById("mImg");
+    const mTitle = document.getElementById("mTitle");
+    const mMeta = document.getElementById("mMeta");
+    const mDesc = document.getElementById("mDesc");
+    const mPlay = document.getElementById("mPlay");
+    const mAddQueue = document.getElementById("mAddQueue");
+    const mShare = document.getElementById("mShare");
+    const mOpen = document.getElementById("mOpen");
+    const mDownload = document.getElementById("mDownload");
+    const mFav = document.getElementById("mFav");
+    const mClose = document.getElementById("mClose");
+
+    const drawerOverlay = document.getElementById("drawerOverlay");
+    const drawer = document.getElementById("drawer");
+    const queueList = document.getElementById("queueList");
+    const clearQueueBtn = document.getElementById("clearQueue");
+    const closeQueueBtn = document.getElementById("closeQueue");
+
+    // ======== STATE ========
+    let allItems = [];
+    let viewItems = [];
+    let activeTab = "all";
+    let activeGenre = "Todos";
+    let activeSort = "recent";
+    let currentIndex = -1;
+    let currentItem = null;
+
+    // ======== GENRES ========
+    function buildGenres(items){
+      const set = new Set(["Todos"]);
+      for(const it of items) set.add(genreOf(it));
+
+      genresBox.innerHTML = "";
+      [...set].forEach(g => {
+        const b = document.createElement("button");
+        b.className = "btnTop" + (g===activeGenre ? " active":"");
+        b.textContent = g==="Todos" ? "🏷️ Todos" : "🏷️ " + g;
+        b.onclick = () => { activeGenre = g; applyFilters(); };
+        genresBox.appendChild(b);
+      });
+    }
+
+    function sortItems(arr){
+      const out = [...arr];
+      if(activeSort === "recent"){
+        out.sort((a,b)=> String(idOf(b)).localeCompare(String(idOf(a)), undefined, {numeric:true}));
+      }else if(activeSort === "az"){
+        out.sort((a,b)=> titleOf(a).localeCompare(titleOf(b)));
+      }
+      return out;
+    }
+
+    function applyFilters(){
+      const q = normalize(qInput.value || "");
+      let base = allItems;
+
+      if(activeTab === "fav") base = base.filter(it => isFav(idOf(it)));
+      if(activeGenre !== "Todos") base = base.filter(it => genreOf(it) === activeGenre);
+
+      if(q){
+        base = base.filter(it =>
+          normalize(titleOf(it)+" "+artistOf(it)+" "+genreOf(it)+" "+descOf(it)).includes(q)
+        );
+      }
+
+      viewItems = sortItems(base);
+      renderList(viewItems);
+
+      tabAll.classList.toggle("active", activeTab==="all");
+      tabFav.classList.toggle("active", activeTab==="fav");
+      statusText.textContent = "Total: " + viewItems.length;
+    }
+
+    function renderList(items){
+      lista.innerHTML = "";
+      countPill.textContent = String(items.length);
+      emptyBox.style.display = items.length ? "none" : "block";
+
+      items.forEach((it, idx) => {
+        const card = document.createElement("div");
+        card.className = "card";
+
+        const img = imgOf(it);
+        const dl = dlUrlOf(it);
+
+        card.innerHTML = `
+          ${img ? `<img class="thumb" src="${escapeHtml(img)}" alt="">` : `<div class="thumb"></div>`}
+          <div class="content">
+            <div class="topline">
+              <h3 class="songTitle">${escapeHtml(titleOf(it))}</h3>
+              ${dl ? `<a class="btnIcon" href="${escapeHtml(dl)}" download title="Baixar">📥</a>` : ``}
+            </div>
+
+            <div class="artist">
+              <span>${escapeHtml(artistOf(it))}</span>
+              <button class="favBtn ${isFav(idOf(it)) ? "on":""}" title="Favoritar">⭐</button>
+            </div>
+
+            <div class="tags">
+              <span class="tag">🎧 ${escapeHtml(genreOf(it))}</span>
+            </div>
+
+            ${descOf(it) ? `<div class="desc">${escapeHtml(descOf(it))}</div>` : ``}
+
+            <div class="rowBtns">
+              <button class="btnTop" data-act="play">▶️ Tocar</button>
+              <button class="btnTop" data-act="queue">➕ Fila</button>
+            </div>
+          </div>
+        `;
+
+        card.addEventListener("click", (ev) => {
+          const t = ev.target;
+          if(t && (t.classList.contains("favBtn") || t.classList.contains("btnIcon") || t.dataset.act)) return;
+          openModal(it, idx);
+        });
+
+        card.querySelector(".favBtn").addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          const id = String(idOf(it));
+          if(isFav(id)) favs.delete(id); else favs.add(id);
+          saveFavs();
+          applyFilters();
+        });
+
+        card.querySelector('[data-act="play"]').addEventListener("click", (ev)=>{
+          ev.stopPropagation();
+          playItem(it);
+        });
+
+        card.querySelector('[data-act="queue"]').addEventListener("click", (ev)=>{
+          ev.stopPropagation();
+          addToQueue(idOf(it));
+          renderQueue();
+          openQueue();
+        });
+
+        const dlA = card.querySelector(".btnIcon");
+        if(dlA) dlA.addEventListener("click", (ev)=> ev.stopPropagation());
+
+        lista.appendChild(card);
+      });
+    }
+
+    // ======== MODAL ========
+    function openModal(it, idx){
+      currentItem = it;
+      currentIndex = idx;
+
+      mTitle.textContent = titleOf(it);
+      mMeta.textContent = `${artistOf(it)} • ${genreOf(it)}`;
+      mDesc.textContent = descOf(it) || "—";
+
+      const img = imgOf(it);
+      mImg.src = img || "";
+      mImg.style.display = img ? "block" : "none";
+
+      const playUrl = playUrlOf(it) || dlUrlOf(it);
+      const dlUrl = dlUrlOf(it);
+
+      mOpen.href = playUrl || "#";
+      mDownload.href = dlUrl || "#";
+      mDownload.style.display = dlUrl ? "inline-flex" : "none";
+
+      mFav.textContent = isFav(idOf(it)) ? "⭐ Remover fav" : "⭐ Favoritar";
+      modalOverlay.classList.add("show");
+    }
+    function closeModal(){ modalOverlay.classList.remove("show"); }
+    mClose.onclick = closeModal;
+    modalOverlay.addEventListener("click", (e)=>{ if(e.target === modalOverlay) closeModal(); });
+
+    mPlay.onclick = ()=> { if(currentItem) playItem(currentItem); closeModal(); };
+    mAddQueue.onclick = ()=> { if(currentItem) addToQueue(idOf(currentItem)); renderQueue(); openQueue(); };
+    mShare.onclick = ()=> { if(currentItem) shareItem(currentItem); };
+    mFav.onclick = ()=> {
+      if(!currentItem) return;
+      const id = String(idOf(currentItem));
+      if(isFav(id)) favs.delete(id); else favs.add(id);
+      saveFavs();
+      applyFilters();
+      openModal(currentItem, currentIndex);
+    };
+
+    // ======== SHARE ========
+    async function shareItem(it){
+      const url = dlUrlOf(it) || playUrlOf(it) || "";
+      const text = `🎵 ${titleOf(it)} - ${artistOf(it)}\n${url}\n\nMúsicas Novas WebnetMz`;
+      try{
+        if(navigator.share) await navigator.share({ text });
+        else if(navigator.clipboard){ await navigator.clipboard.writeText(text); alert("✅ Copiado!"); }
+        else prompt("Copie:", text);
+      }catch(e){}
+    }
+
+    // ======== PLAYER ========
+    function showPlayer(){ playerBar.classList.add("show"); }
+    function hidePlayer(){
+      player.pause();
+      player.removeAttribute("src"); player.load();
+      playerBar.classList.remove("show");
+      currentItem = null;
+      currentIndex = -1;
+    }
+
+    function playItem(it){
+      currentItem = it;
+
+      const idx = viewItems.findIndex(x => String(idOf(x))===String(idOf(it)));
+      if(idx >= 0) currentIndex = idx;
+
+      const url = playUrlOf(it) || dlUrlOf(it);
+      if(!url){ alert("Sem link de áudio nessa música."); return; }
+
+      pTitle.textContent = titleOf(it);
+      pArtist.textContent = artistOf(it);
+
+      const img = imgOf(it);
+      pThumb.src = img || "";
+      pThumb.style.display = img ? "block" : "none";
+
+      pShare.onclick = (e)=>{ e.preventDefault(); shareItem(it); };
+
+      const dl = dlUrlOf(it);
+      if(dl){
+        pDownload.style.display = "inline-flex";
+        pDownload.href = dl;
+      }else{
+        pDownload.style.display = "none";
+        pDownload.href = "#";
+      }
+
+      player.src = url;
+      player.play().catch(()=>{});
+      showPlayer();
+    }
+
+    pClose.onclick = hidePlayer;
+    pPrev.onclick = ()=>{
+      if(!viewItems.length) return;
+      const i = Math.max(0, currentIndex - 1);
+      currentIndex = i;
+      playItem(viewItems[i]);
+    };
+    pNext.onclick = ()=>{
+      if(!viewItems.length) return;
+      const i = Math.min(viewItems.length-1, currentIndex + 1);
+      currentIndex = i;
+      playItem(viewItems[i]);
+    };
+
+    // ======== QUEUE ========
+    function addToQueue(id){
+      id = String(id || "");
+      if(!id) return;
+      if(!queue.includes(id)) queue.push(id);
+      saveQueue();
+    }
+    function removeFromQueue(id){
+      id = String(id);
+      queue = queue.filter(x => String(x)!==id);
+      saveQueue();
+    }
+    function clearQueue(){ queue = []; saveQueue(); }
+
+    function openQueue(){
+      drawerOverlay.classList.add("show");
+      drawer.classList.add("show");
+      renderQueue();
+    }
+    function closeQueue(){
+      drawerOverlay.classList.remove("show");
+      drawer.classList.remove("show");
+    }
+    function renderQueue(){
+      queueList.innerHTML = "";
+      if(!queue.length){
+        queueList.innerHTML = `<div class="qMeta">Fila vazia.</div>`;
+        return;
+      }
+      queue.forEach(id => {
+        const it = allItems.find(x => String(idOf(x))===String(id));
+        if(!it) return;
+
+        const row = document.createElement("div");
+        row.className = "qItem";
+        row.innerHTML = `
+          <div class="qLeft">
+            <div class="qName">${escapeHtml(titleOf(it))}</div>
+            <div class="qMeta">${escapeHtml(artistOf(it))}</div>
+          </div>
+          <div class="qBtns">
+            <button class="miniBtn" data-act="play">▶️</button>
+            <button class="miniBtn" data-act="del">🗑️</button>
+          </div>
+        `;
+        row.querySelector('[data-act="play"]').onclick = ()=> playItem(it);
+        row.querySelector('[data-act="del"]').onclick = ()=>{ removeFromQueue(id); renderQueue(); };
+        queueList.appendChild(row);
+      });
+    }
+
+    pQueueBtn.onclick = openQueue;
+    drawerOverlay.onclick = closeQueue;
+    closeQueueBtn.onclick = closeQueue;
+    clearQueueBtn.onclick = ()=>{ clearQueue(); renderQueue(); };
+
+    // ======== TOP ========
+    tabAll.onclick = ()=>{ activeTab="all"; applyFilters(); };
+    tabFav.onclick = ()=>{ activeTab="fav"; applyFilters(); };
+    clearFavBtn.onclick = ()=>{ favs = new Set(); saveFavs(); applyFilters(); };
+    sortSelect.onchange = ()=>{ activeSort = sortSelect.value; applyFilters(); };
+    qInput.oninput = ()=> applyFilters();
+
+    // ======== CARREGAR DO FIREBASE (apenas leitura) ========
+    function carregar(){
+      statusText.textContent = "Carregando...";
+
+      db.ref("musicas").on("value", (snap) => {
+        const data = snap.val() || {};
+        const arr = Object.entries(data).map(([id, obj]) => ({ id, ...(obj||{}) }));
+        // ordena por id (numérico se for número)
+        arr.sort((a,b)=> String(idOf(b)).localeCompare(String(idOf(a)), undefined, {numeric:true}));
+
+        allItems = arr;
+        buildGenres(allItems);
+        applyFilters();
+        statusText.textContent = "Total: " + allItems.length;
+      }, (err) => {
+        statusText.textContent = "❌ Erro ao ler /musicas: " + (err?.message || err);
+      });
+    }
+
+    carregar();
+  </script>
+</body>
+</html>
